@@ -12,7 +12,7 @@ Currently you can only use it to change the sleep timeout, power off timeout,
 and the developer password.
 
 # Download
-There is currently a ![DMG](bins/RemarkableAssistant.dmg) for Mac in the bins directory
+There is currently a ![DMG](bin/RemarkableAssistant.dmg) for Mac in the bins directory
 
 # Installing and running the python directly
 Install the requirements
