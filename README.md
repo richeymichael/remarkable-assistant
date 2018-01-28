@@ -1,11 +1,11 @@
+# Remarkable Assistant
+Creating an assistant to have more control over the remarkable tablet.
+
 ![](screenshots/screen.png)
 
 # Warning
 This software might brick your tablet. Don't use it if you don't know what
 you're doing. 
-
-# Remarkable Assistant
-Creating an assistant to have more control over the remarkable tablet.
 
 # What does it do?
 Currently you can only use it to change the sleep timeout, power off timeout, 
