@@ -15,10 +15,12 @@ and the developer password.
 There is currently a [DMG](bin/RemarkableAssistant.dmg) for Mac in the bin directory
 
 # Installing and running the python directly
-Install the requirements
+Install the requirements:
+
 `pip install -r requirements.txt`
 
-Run the application
+Run the application:
+
 `python src/main.py`
 
 # How to use it
