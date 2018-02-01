@@ -6,6 +6,11 @@ from threading import Thread
 import uuid
 
 import kivy
+
+# fix a windows bug
+from kivy import Config
+Config.set('graphics', 'multisamples', '0')
+
 from kivy.app import App
 from kivy.graphics import Color
 from kivy.graphics import Rectangle
@@ -13,6 +18,7 @@ from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.filechooser import FileChooserIconView
+from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
 from kivy.uix.tabbedpanel import TabbedPanel
@@ -401,7 +407,7 @@ class Splash(BoxLayout):
         """Initialize the class"""
         super(Splash, self).__init__(**kwargs)
         self.orientation = 'vertical'
-        self.file_chooser = FileChooserIconView()
+        self.file_chooser = FileChooserListView()
         self.file_chooser.rootpath = SPLASH_DIR
         self.file_chooser.path = SPLASH_DIR
         self.file_chooser.multiselect = True
@@ -415,7 +421,7 @@ class Templates(BoxLayout):
         """Initialize the class"""
         super(Templates, self).__init__(**kwargs)
         self.orientation = 'vertical'
-        self.file_chooser = FileChooserIconView()
+        self.file_chooser = FileChooserListView()
         self.file_chooser.rootpath = TEMPLATE_DIR
         self.file_chooser.path = TEMPLATE_DIR
         self.file_chooser.multiselect = True
