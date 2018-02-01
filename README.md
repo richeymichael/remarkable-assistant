@@ -1,7 +1,7 @@
 # Remarkable Assistant
 Creating an assistant to have more control over the remarkable tablet.
 
-![](screenshots/screen.png)
+![](screenshots/screens.gif)
 
 # Warning
 This software might brick your tablet. Don't use it if you don't know what
