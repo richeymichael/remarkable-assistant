@@ -1,6 +1,7 @@
 """The application is a GUI for changing settings on the remarkable tablet"""
 import os
 from pathlib import Path
+from shutil import copy2
 import sys
 from threading import Thread
 import uuid
@@ -24,6 +25,7 @@ from kivy.uix.label import Label
 from kivy.uix.tabbedpanel import TabbedPanel
 from kivy.uix.tabbedpanel import TabbedPanelHeader
 from kivy.uix.textinput import TextInput
+from kivy.core.window import Window
 import paramiko
 
 kivy.require('1.10.0')
@@ -366,6 +368,8 @@ class HomeScreen(BoxLayout):
 
         self.status_layout = StatusLayout(size_hint=(1, .1))
         self.tabs = TabbedPanel()
+        app = App.get_running_app()
+        app.tabs = self.tabs
 
         settings_header = TabbedPanelHeader(text='Assistant\nSettings')
         settings_header.content = AppSettings(status_layout=self.status_layout)
@@ -413,6 +417,10 @@ class Splash(BoxLayout):
         self.file_chooser.multiselect = True
         self.add_widget(self.file_chooser)
 
+    def _on_dropfile(self, *args):
+        copy2(args[2], SPLASH_DIR)
+        self.file_chooser._update_files()
+
 
 class Templates(BoxLayout):
     """Only going to copy new templates out to the remarkable"""
@@ -426,6 +434,10 @@ class Templates(BoxLayout):
         self.file_chooser.path = TEMPLATE_DIR
         self.file_chooser.multiselect = True
         self.add_widget(self.file_chooser)
+
+    def _on_dropfile(self, *args):
+        copy2(args[2], TEMPLATE_DIR)
+        self.file_chooser._update_files()
 
 
 class TabletSettings(BoxLayout):
@@ -441,6 +453,9 @@ class TabletSettings(BoxLayout):
         self.config_layout = TabletConfigLayout()
         self.add_widget(self.config_layout)
 
+    def _on_dropfile(self, *args):
+        pass
+
 
 class AppSettings(BoxLayout):
     """AppSettings is a vertical box layout"""
@@ -455,6 +470,9 @@ class AppSettings(BoxLayout):
         self.config_layout = AppConfigLayout()
         self.add_widget(self.config_layout)
 
+    def _on_dropfile(self, *args):
+        pass
+
 
 class MyApp(App):
     """The main application class"""
@@ -462,8 +480,12 @@ class MyApp(App):
     def build(self):
         """Set title and build the HomeScreen (well a layout not a screen)"""
         self.title = "reMarkable Assistant"
+        self.tabs = None
+        Window.bind(on_dropfile=self._on_dropfile)
         return HomeScreen()
 
+    def _on_dropfile(self, *args):
+        self.tabs.current_tab.content._on_dropfile(self, *args)
 
 if __name__ == '__main__':
     MyApp().run()

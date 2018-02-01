@@ -14,7 +14,19 @@ and the developer password.
 # Download
 There is currently a [DMG](bin/RemarkableAssistant.dmg) for Mac in the bin directory
 
-# Installing and running the python directly
+# Windows Installation
+1. Make sure you have python 2.7 and pip installed.
+2. This requires at least OpenGL 2 or greater
+3. This assumes your Python exectuable is in C:\Python27
+
+`C:\Python27\python.exe -m pip install --upgrade pip`
+`C:\Python27\pythone.exe -m pip install -r windows-requirements.txt`
+
+Run the application:
+
+`C:\Python27\python.exe src\main.py`
+
+# Installing for everyone else:
 Install the requirements:
 
 `pip install -r requirements.txt`
