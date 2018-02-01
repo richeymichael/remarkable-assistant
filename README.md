@@ -20,6 +20,7 @@ There is currently a [DMG](bin/RemarkableAssistant.dmg) for Mac in the bin direc
 3. This assumes your Python exectuable is in C:\Python27
 
 `C:\Python27\python.exe -m pip install --upgrade pip`
+
 `C:\Python27\pythone.exe -m pip install -r windows-requirements.txt`
 
 Run the application:
