@@ -8,8 +8,10 @@ This software might brick your tablet. Don't use it if you don't know what
 you're doing. 
 
 # What does it do?
-Currently you can only use it to change the sleep timeout, power off timeout, 
-and the developer password.
+You can use it to change the sleep timeout, power off timeout, 
+and the developer password. Drag and drop files onto the templates tab
+to create new templates. Drag and drop splash screens onto the splash tab
+to create new splash screens.
 
 # Download
 There is currently a [DMG](bin/RemarkableAssistant.dmg) for Mac in the bin directory
