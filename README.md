@@ -40,10 +40,10 @@ Run the application:
 
 # How to use it
 1. Plug your remarkable tablet into your computer via USB
-2. Set the old password the remarkable password you see under rM->About
-3. Click the 'Attempt to Reconnect' button so the assistant will pull down your config
+2. Set the password the remarkable ssh password you see under rM->About
+3. Click the 'Reconnect' button so the assistant will pull down your config
 4. Remarkable Assistant should fill in the missing fields with the current values
 5. You can now change the new password and timeout fields
-6. When you're ready to save press the save settings to tablet button
+6. When you're ready to save press the save button to push files to the tablet
 7. Use the quit button to clean up temporary files
 
