@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import pickle
 from shutil import copy2
+import signal
 import stat
 import sys
 from threading import Thread
@@ -34,6 +35,8 @@ REMIND = '[b][color=ff0000] Restart tablet to see changes.[/color][/b]'
 WARN = '[b][color=ff0000]NOT SAVED.[/color][/b] '
 
 INITIALIZE = 'Attempting to connect to remarkable tablet'
+TIMES_NOT_SET = '[color=ff0000]On tablet select power settings and ' + \
+    'toggle both settings off and on[/color]\nThen restart tablet.'
 NOT_CONNECTED = 'Failed to connect to remarkable tablet'
 CONNECTED = 'Successfully connected to remarkable tablet'
 LOCAL_FILE_SAVED = 'Settings saved locally'
@@ -54,7 +57,9 @@ SPLASH_DIR = './splash/'
 REMOTE_SPLASH_DIR = '/usr/share/remarkable/'
 REMOTE_DOC_DIR = '/home/root/.local/share/remarkable/xochitl'
 BACKUP_DIR = './myfiles/'
+
 PICKLE_FILE = 'config.pickle'
+REMOTE_CONFIG_FILE = '/home/root/.config/remarkable/xochitl.conf'
 
 
 class StatusLabel(Label):
@@ -87,14 +92,24 @@ class StatusLayout(AnchorLayout):
 
 class AppController(object):
     """The controller does the actual work of saving and fetching"""
+    RUNNING = 0
+    UPDATING = 1
+    STOPPING = 2
 
-    def __init__(self, app_config_layout, tablet_config_layout, status_layout, **kwargs):
+    def __init__(
+            self,
+            app_config_layout,
+            tablet_config_layout,
+            status_layout,
+            my_files,
+            **kwargs
+    ):
         """Initialize the class"""
-        self.stop = False
-        self.remotepath = '/home/root/.config/remarkable/xochitl.conf'
+        self.status = self.RUNNING
         self.status_layout = status_layout
         self.app_config_layout = app_config_layout
         self.tablet_config_layout = tablet_config_layout
+        self.my_files = my_files
         file_uuid = str(uuid.uuid4())
         if not os.path.exists(TMP_DIR):
             os.makedirs(TMP_DIR)
@@ -129,7 +144,7 @@ class AppController(object):
             )
             sftp = ssh.open_sftp()
             self.status_layout.status_label.text = CONNECTED
-            sftp.get(self.remotepath, self.temp_file)
+            sftp.get(REMOTE_CONFIG_FILE, self.temp_file)
             file_handle = open(self.temp_file, 'r')
             for line in file_handle:
                 if line.find(IDLE_KEY) == 0:
@@ -146,6 +161,9 @@ class AppController(object):
                     _, password = str.split(line, '=')
                     self.app_config_layout.old_password.text = password.strip()
                     self.tablet_config_layout.password.text = password.strip()
+            if (not self.tablet_config_layout.idle.text or
+                not self.tablet_config_layout.suspend.text):
+                self.status_layout.status_label.text = TIMES_NOT_SET
         except paramiko.ssh_exception.AuthenticationException as conn_e:
             self.status_layout.status_label.text =  \
                 NOT_CONNECTED + '\n' + conn_e.message
@@ -161,8 +179,18 @@ class AppController(object):
 
     def get_files(self, *args):
         """Always run this in the background"""
+        signal.signal(signal.SIGALRM, self.signal_handler)
+        signal.alarm(5)
+        self.status = self.UPDATING
         self.status_layout.status_label.text = INITIALIZE
         Thread(target=self._get_files).start()
+
+    def signal_handler(self, signum, frame):
+        """Update the files in the view"""
+        self.my_files.file_chooser._update_files()
+        if self.status == self.UPDATING:
+            signal.signal(signal.SIGALRM, self.signal_handler)
+            signal.alarm(5)
 
     def _get_files(self, *args):
         """Pull down the files from the remarkable tablet"""
@@ -179,6 +207,8 @@ class AppController(object):
             sftp = ssh.open_sftp()
             self._get_directory(sftp, REMOTE_DOC_DIR, BACKUP_DIR)
             self.status_layout.status_label.text = CONNECTED
+            self.status = self.UPDATING
+            signal.alarm(0)
         except paramiko.ssh_exception.AuthenticationException as conn_e:
             self.status_layout.status_label.text =  \
                 NOT_CONNECTED + '\n' + conn_e.message
@@ -196,9 +226,10 @@ class AppController(object):
         """Recurse through the directories"""
         remarkable_files = sftp.listdir_attr(remote_directory)
         for each in remarkable_files:
-            if self.stop:
+            if self.status == self.STOPPING:
                 return
-            self.status_layout.status_label.text = DOWNLOADING + "\n" + each.filename
+            self.status_layout.status_label.text = \
+                DOWNLOADING + "\n" + each.filename
             if stat.S_ISDIR(each.st_mode):
                 if not os.path.exists(local_directory + "/" + each.filename):
                     os.makedirs(local_directory + "/" + each.filename)
@@ -278,11 +309,19 @@ class AppController(object):
                 )
                 sftp = ssh.open_sftp()
                 self.status_layout.status_label.text = CONNECTED
-                sftp.put(self.local_file, self.remotepath)
+                sftp.put(self.local_file, REMOTE_CONFIG_FILE)
                 for item in os.listdir(TEMPLATE_DIR):
                     sftp.put(TEMPLATE_DIR + item, REMOTE_TEMPLATE_DIR + item)
                 for item in os.listdir(SPLASH_DIR):
                     sftp.put(SPLASH_DIR + item, REMOTE_SPLASH_DIR + item)
+                self.app_config_layout.old_password.text = \
+                    self.tablet_config_layout.password.text.strip()
+                save_pw = {
+                    'password': self.app_config_layout.old_password.text.strip()
+                }
+                pickle_out = open(PICKLE_FILE, "wb")
+                pickle.dump(save_pw, pickle_out)
+                pickle_out.close()
                 self._get_config()
                 self.status_layout.status_label.text = REMOTE_FILE_SAVED
             except paramiko.ssh_exception.AuthenticationException as conn_e:
@@ -302,7 +341,7 @@ class AppController(object):
 
     def quit(self, obj):
         """Exit"""
-        self.stop = True
+        self.status = self.STOPPING
         self.status_layout.status_label.text = EXITING
         file_name = Path(self.temp_file)
         if file_name.is_file():
@@ -310,6 +349,12 @@ class AppController(object):
         file_name = Path(self.local_file)
         if file_name.is_file():
             os.remove(self.local_file)
+        save_pw = {
+            'password': self.app_config_layout.old_password.text.strip()
+        }
+        pickle_out = open(PICKLE_FILE, "wb")
+        pickle.dump(save_pw, pickle_out)
+        pickle_out.close()
         sys.exit()
 
 
@@ -320,12 +365,6 @@ class ConfigLabel(Label):
         """Initialize the class"""
         super(ConfigLabel, self).__init__(**kwargs)
         self.lines = self.text.count('\n') + 1
-#        self.font_size = (self.height - self.height*.2)/self.lines
-
-#    def on_size(self, *args):
-#        """Fix the fonts on resize"""
-#        self.lines = self.text.count('\n') + 1
-#        self.font_size = (self.height - self.height*.2)/self.lines
 
 
 class ConfigInput(TextInput):
@@ -336,12 +375,7 @@ class ConfigInput(TextInput):
         super(ConfigInput, self).__init__(**kwargs)
         self.multiline = False
         self.cursor_blink = True
-#        self.font_size = self.height - self.height*.2
         self.write_tab = False
-
-#    def on_size(self, *args):
-#        """Fix the fonts on resize"""
-#        self.font_size = self.height - self.height*.2
 
 
 class AppConfigLayout(GridLayout):
@@ -426,11 +460,6 @@ class ButtonRowLayout(BoxLayout):
         self.save_btn.bind(on_press=self.app_controller.save_to_tablet)
         self.add_widget(self.save_btn)
 
-        # Used this for testing
-        #self.save_local_btn = Button(text='Save settings locally')
-        #self.save_local_btn.bind(on_press=self.app_controller.save_locally)
-        #self.add_widget(self.save_local_btn)
-
         self.back_btn = Button(
             text='Pull My Files',
             halign='center'
@@ -482,7 +511,8 @@ class HomeScreen(BoxLayout):
         self.app_controller = AppController(
             settings_header.content.config_layout,
             tab_settings_header.content.config_layout,
-            self.status_layout
+            self.status_layout,
+            my_files_header.content,
         )
 
         self.add_widget(self.tabs)
