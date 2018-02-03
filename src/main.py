@@ -1,4 +1,5 @@
 """The application is a GUI for changing settings on the remarkable tablet"""
+import json
 import os
 from pathlib import Path
 import pickle
@@ -21,7 +22,9 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.gridlayout import GridLayout
+from kivy.uix.image import AsyncImage
 from kivy.uix.label import Label
+from kivy.uix.scrollview import ScrollView
 from kivy.uix.tabbedpanel import TabbedPanel
 from kivy.uix.tabbedpanel import TabbedPanelHeader
 from kivy.uix.textinput import TextInput
@@ -191,6 +194,8 @@ class AppController(object):
         if self.status == self.UPDATING:
             signal.signal(signal.SIGALRM, self.signal_handler)
             signal.alarm(5)
+        else:
+            signal.alarm(0)
 
     def _get_files(self, *args):
         """Pull down the files from the remarkable tablet"""
@@ -207,8 +212,7 @@ class AppController(object):
             sftp = ssh.open_sftp()
             self._get_directory(sftp, REMOTE_DOC_DIR, BACKUP_DIR)
             self.status_layout.status_label.text = CONNECTED
-            self.status = self.UPDATING
-            signal.alarm(0)
+            self.status = self.RUNNING
         except paramiko.ssh_exception.AuthenticationException as conn_e:
             self.status_layout.status_label.text =  \
                 NOT_CONNECTED + '\n' + conn_e.message
@@ -508,6 +512,10 @@ class HomeScreen(BoxLayout):
         my_files_header.content = MyFiles()
         self.tabs.add_widget(my_files_header)
 
+        friendly_files_header = TabbedPanelHeader(text='Friendly Files')
+        friendly_files_header.content = FriendlyMyFiles()
+        self.tabs.add_widget(friendly_files_header)
+
         self.app_controller = AppController(
             settings_header.content.config_layout,
             tab_settings_header.content.config_layout,
@@ -521,6 +529,57 @@ class HomeScreen(BoxLayout):
         self.add_widget(self.buttons)
 
         self.add_widget(self.status_layout)
+
+class FriendlyMyFiles(ScrollView):
+    """Your files but looking better"""
+
+    def __init__(self, **kwargs):
+        """Initialize the class"""
+        super(FriendlyMyFiles, self).__init__(**kwargs)
+        self.size_hint=(1, 1)
+
+        layout = GridLayout(cols=3, spacing=10, size_hint_y=None)
+        layout.bind(minimum_height=layout.setter('height'))
+
+        # Get metadata
+        metadata = {}
+        for item in os.listdir(BACKUP_DIR):
+            if item.endswith('.metadata'):
+                key, _ = item.split('.')
+                with open(BACKUP_DIR + item, 'r') as metafile:
+                    metadata[key] = json.load(metafile)
+        
+        # Get thumbnails
+        thumbs = {}
+        for key in metadata:
+            if os.path.exists(BACKUP_DIR + key + '.thumbnails'):
+                thumbs[key] = os.listdir(BACKUP_DIR + key + '.thumbnails')
+
+        for key in metadata:
+            file_layout = BoxLayout(
+                orientation='vertical',
+                size_hint_y=None,
+                height=300
+            )
+            if key in thumbs:
+                aimg = AsyncImage(
+                    source=BACKUP_DIR + key + '.thumbnails' + "/" + thumbs[key][0]
+                )
+                file_layout.add_widget(aimg)
+            filename = metadata[key]['visibleName']
+            if len(filename) > 26:
+                newfilename = filename[:12] + '...' + filename[-11:]
+                filename = newfilename
+            label = Label(
+                text=filename,
+                halign='left',
+                size_hint_y=None
+            )
+#            label.textsize = label.size
+            file_layout.add_widget(label)
+            layout.add_widget(file_layout)
+
+        self.add_widget(layout)
 
 
 class MyFiles(BoxLayout):
