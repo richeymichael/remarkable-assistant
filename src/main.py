@@ -1,33 +1,32 @@
 """The application is a GUI for changing settings on the remarkable tablet"""
 import os
 from pathlib import Path
+import pickle
 from shutil import copy2
+import stat
 import sys
 from threading import Thread
 import uuid
 
 import kivy
 
-# fix a windows bug
-from kivy import Config
-Config.set('graphics', 'multisamples', '0')
-
 from kivy.app import App
+from kivy import Config
+from kivy.core.window import Window
 from kivy.graphics import Color
 from kivy.graphics import Rectangle
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
-from kivy.uix.filechooser import FileChooserIconView
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
 from kivy.uix.tabbedpanel import TabbedPanel
 from kivy.uix.tabbedpanel import TabbedPanelHeader
 from kivy.uix.textinput import TextInput
-from kivy.core.window import Window
 import paramiko
 
+Config.set('graphics', 'multisamples', '0')
 kivy.require('1.10.0')
 LIMIT = 5
 
@@ -42,6 +41,7 @@ REMOTE_FILE_SAVED = 'Settings saved to tablet\n' + REMIND
 BE_SAFE = WARN + '\nTimes and password length must be greater than %d' % LIMIT
 NO_LOCAL = WARN + '\nUnable to find local settings'
 EXITING = 'Exiting'
+DOWNLOADING = 'Downloading'
 
 IDLE_KEY = 'IdleSuspendDelay'
 SUSPEND_KEY = 'SuspendPowerOffDelay'
@@ -52,6 +52,9 @@ TEMPLATE_DIR = './additional-templates/'
 REMOTE_TEMPLATE_DIR = '/usr/share/remarkable/templates/'
 SPLASH_DIR = './splash/'
 REMOTE_SPLASH_DIR = '/usr/share/remarkable/'
+REMOTE_DOC_DIR = '/home/root/.local/share/remarkable/xochitl'
+BACKUP_DIR = './myfiles/'
+PICKLE_FILE = 'config.pickle'
 
 
 class StatusLabel(Label):
@@ -87,6 +90,7 @@ class AppController(object):
 
     def __init__(self, app_config_layout, tablet_config_layout, status_layout, **kwargs):
         """Initialize the class"""
+        self.stop = False
         self.remotepath = '/home/root/.config/remarkable/xochitl.conf'
         self.status_layout = status_layout
         self.app_config_layout = app_config_layout
@@ -101,6 +105,10 @@ class AppController(object):
         self.temp_file = TMP_DIR + file_uuid + '.bak'
         self.local_file = TMP_DIR + file_uuid + '.new'
         self.get_config()
+
+    def reconnect(self, *args):
+        """Attempt to get the config and files again"""
+        self.get_config(*args)
 
     def get_config(self, *args):
         """Always run this in the background"""
@@ -151,6 +159,60 @@ class AppController(object):
             self.status_layout.status_label.text = \
                 NOT_CONNECTED + '\n' + conn_e.message
 
+    def get_files(self, *args):
+        """Always run this in the background"""
+        self.status_layout.status_label.text = INITIALIZE
+        Thread(target=self._get_files).start()
+
+    def _get_files(self, *args):
+        """Pull down the files from the remarkable tablet"""
+        try:
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(
+                self.app_config_layout.ipaddress.text,
+                port=int(self.app_config_layout.port.text),
+                username=self.app_config_layout.username.text,
+                password=self.app_config_layout.old_password.text,
+                timeout=5
+            )
+            sftp = ssh.open_sftp()
+            self._get_directory(sftp, REMOTE_DOC_DIR, BACKUP_DIR)
+            self.status_layout.status_label.text = CONNECTED
+        except paramiko.ssh_exception.AuthenticationException as conn_e:
+            self.status_layout.status_label.text =  \
+                NOT_CONNECTED + '\n' + conn_e.message
+        except paramiko.ssh_exception.BadHostKeyException as conn_e:
+            self.status_layout.status_label.text = \
+                NOT_CONNECTED + '\n' + conn_e.message
+        except paramiko.ssh_exception.SSHException as conn_e:
+            self.status_layout.status_label.text = \
+                NOT_CONNECTED + '\n' + conn_e.message
+        except IOError as conn_e:
+            self.status_layout.status_label.text = \
+                NOT_CONNECTED + '\n' + conn_e.message
+
+    def _get_directory(self, sftp, remote_directory, local_directory):
+        """Recurse through the directories"""
+        remarkable_files = sftp.listdir_attr(remote_directory)
+        for each in remarkable_files:
+            if self.stop:
+                return
+            self.status_layout.status_label.text = DOWNLOADING + "\n" + each.filename
+            if stat.S_ISDIR(each.st_mode):
+                if not os.path.exists(local_directory + "/" + each.filename):
+                    os.makedirs(local_directory + "/" + each.filename)
+                self._get_directory(
+                    sftp,
+                    remote_directory + "/" + each.filename,
+                    local_directory + "/" + each.filename
+                )
+            else:
+                sftp.get(
+                    remote_directory + "/" + each.filename,
+                    local_directory + "/" + each.filename,
+                )
+
     def save_locally(self, *args):
         """Always run this in the background"""
         Thread(target=self._save_locally).start()
@@ -182,6 +244,12 @@ class AppController(object):
                             self.tablet_config_layout.password.text.strip()
                         )
                     file_output.write(line)
+                save_pw = {
+                    'password': self.tablet_config_layout.password.text.strip()
+                }
+                pickle_out = open(PICKLE_FILE, "wb")
+                pickle.dump(save_pw, pickle_out)
+                pickle_out.close()
                 self.status_layout.status_label.text = LOCAL_FILE_SAVED
                 return True
             else:
@@ -234,6 +302,7 @@ class AppController(object):
 
     def quit(self, obj):
         """Exit"""
+        self.stop = True
         self.status_layout.status_label.text = EXITING
         file_name = Path(self.temp_file)
         if file_name.is_file():
@@ -299,6 +368,12 @@ class AppConfigLayout(GridLayout):
         self.old_password = ConfigInput(password=True)
         self.add_widget(self.old_password)
 
+        if os.path.exists(PICKLE_FILE):
+            pickle_in = open(PICKLE_FILE, "rb")
+            save_data = pickle.load(pickle_in)
+            pickle_in.close()
+            self.old_password.text = save_data['password']
+
 
 class TabletConfigLayout(GridLayout):
     """Two columns in a grid layout, label and input"""
@@ -341,10 +416,13 @@ class ButtonRowLayout(BoxLayout):
         self.orientation = 'horizontal'
 
         self.recon_btn = Button(text='Reconnect')
-        self.recon_btn.bind(on_press=self.app_controller.get_config)
+        self.recon_btn.bind(on_press=self.app_controller.reconnect)
         self.add_widget(self.recon_btn)
 
-        self.save_btn = Button(text='Save')
+        self.save_btn = Button(
+            text='Push Settings, \nTemplates, and Screens',
+            halign='center'
+        )
         self.save_btn.bind(on_press=self.app_controller.save_to_tablet)
         self.add_widget(self.save_btn)
 
@@ -352,6 +430,13 @@ class ButtonRowLayout(BoxLayout):
         #self.save_local_btn = Button(text='Save settings locally')
         #self.save_local_btn.bind(on_press=self.app_controller.save_locally)
         #self.add_widget(self.save_local_btn)
+
+        self.back_btn = Button(
+            text='Pull My Files',
+            halign='center'
+        )
+        self.back_btn.bind(on_press=self.app_controller.get_files)
+        self.add_widget(self.back_btn)
 
         self.quit_btn = Button(text='Quit')
         self.quit_btn.bind(on_press=self.app_controller.quit)
@@ -390,6 +475,10 @@ class HomeScreen(BoxLayout):
         splash_header.content = Splash()
         self.tabs.add_widget(splash_header)
 
+        my_files_header = TabbedPanelHeader(text='My Files')
+        my_files_header.content = MyFiles()
+        self.tabs.add_widget(my_files_header)
+
         self.app_controller = AppController(
             settings_header.content.config_layout,
             tab_settings_header.content.config_layout,
@@ -402,6 +491,26 @@ class HomeScreen(BoxLayout):
         self.add_widget(self.buttons)
 
         self.add_widget(self.status_layout)
+
+
+class MyFiles(BoxLayout):
+    """You can backup your files"""
+
+    def __init__(self, **kwargs):
+        """Initialize the class"""
+        super(MyFiles, self).__init__(**kwargs)
+        if not os.path.exists(BACKUP_DIR):
+            os.makedirs(BACKUP_DIR)
+        self.orientation = 'vertical'
+        self.file_chooser = FileChooserListView()
+        self.file_chooser.rootpath = BACKUP_DIR
+        self.file_chooser.path = BACKUP_DIR
+        self.file_chooser.multiselect = True
+        self.add_widget(self.file_chooser)
+
+    def on_dropfile(self, *args):
+        """Don't do anything if a file is dropped on this tab"""
+        pass
 
 
 class Splash(BoxLayout):
@@ -417,7 +526,8 @@ class Splash(BoxLayout):
         self.file_chooser.multiselect = True
         self.add_widget(self.file_chooser)
 
-    def _on_dropfile(self, *args):
+    def on_dropfile(self, *args):
+        """Copy the file to the local directory when a file is dropped here"""
         copy2(args[2], SPLASH_DIR)
         self.file_chooser._update_files()
 
@@ -435,7 +545,8 @@ class Templates(BoxLayout):
         self.file_chooser.multiselect = True
         self.add_widget(self.file_chooser)
 
-    def _on_dropfile(self, *args):
+    def on_dropfile(self, *args):
+        """Copy the file to the local directory when a file is dropped here"""
         copy2(args[2], TEMPLATE_DIR)
         self.file_chooser._update_files()
 
@@ -453,7 +564,8 @@ class TabletSettings(BoxLayout):
         self.config_layout = TabletConfigLayout()
         self.add_widget(self.config_layout)
 
-    def _on_dropfile(self, *args):
+    def on_dropfile(self, *args):
+        """Don't do anything if a file is dropped on this tab"""
         pass
 
 
@@ -470,7 +582,8 @@ class AppSettings(BoxLayout):
         self.config_layout = AppConfigLayout()
         self.add_widget(self.config_layout)
 
-    def _on_dropfile(self, *args):
+    def on_dropfile(self, *args):
+        """Don't do anything if a file is dropped on this tab"""
         pass
 
 
@@ -485,7 +598,8 @@ class MyApp(App):
         return HomeScreen()
 
     def _on_dropfile(self, *args):
-        self.tabs.current_tab.content._on_dropfile(self, *args)
+        """Call the the on_dropfile for the active tab's content"""
+        self.tabs.current_tab.content.on_dropfile(self, *args)
 
 if __name__ == '__main__':
     MyApp().run()
