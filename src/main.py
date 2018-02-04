@@ -20,6 +20,7 @@ from kivy.graphics import Rectangle
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
+from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.image import AsyncImage
@@ -105,6 +106,7 @@ class AppController(object):
             tablet_config_layout,
             status_layout,
             my_files,
+            friendly_my_files,
             **kwargs
     ):
         """Initialize the class"""
@@ -112,6 +114,7 @@ class AppController(object):
         self.status_layout = status_layout
         self.app_config_layout = app_config_layout
         self.tablet_config_layout = tablet_config_layout
+        self.friendly_my_files = friendly_my_files
         self.my_files = my_files
         file_uuid = str(uuid.uuid4())
         if not os.path.exists(TMP_DIR):
@@ -191,6 +194,7 @@ class AppController(object):
     def signal_handler(self, signum, frame):
         """Update the files in the view"""
         self.my_files.file_chooser._update_files()
+        self.friendly_my_files.refresh_widget()
         if self.status == self.UPDATING:
             signal.signal(signal.SIGALRM, self.signal_handler)
             signal.alarm(5)
@@ -211,6 +215,7 @@ class AppController(object):
             )
             sftp = ssh.open_sftp()
             self._get_directory(sftp, REMOTE_DOC_DIR, BACKUP_DIR)
+            app = App.get_running_app()
             self.status_layout.status_label.text = CONNECTED
             self.status = self.RUNNING
         except paramiko.ssh_exception.AuthenticationException as conn_e:
@@ -510,7 +515,7 @@ class HomeScreen(BoxLayout):
 
         my_files_header = TabbedPanelHeader(text='My Files')
         my_files_header.content = MyFiles()
-        self.tabs.add_widget(my_files_header)
+#        self.tabs.add_widget(my_files_header)
 
         friendly_files_header = TabbedPanelHeader(text='Friendly Files')
         friendly_files_header.content = FriendlyMyFiles()
@@ -521,6 +526,7 @@ class HomeScreen(BoxLayout):
             tab_settings_header.content.config_layout,
             self.status_layout,
             my_files_header.content,
+            friendly_files_header.content,
         )
 
         self.add_widget(self.tabs)
@@ -530,6 +536,7 @@ class HomeScreen(BoxLayout):
 
         self.add_widget(self.status_layout)
 
+
 class FriendlyMyFiles(ScrollView):
     """Your files but looking better"""
 
@@ -537,49 +544,126 @@ class FriendlyMyFiles(ScrollView):
         """Initialize the class"""
         super(FriendlyMyFiles, self).__init__(**kwargs)
         self.size_hint=(1, 1)
+        self.metadata = {}
+        self.thumbs = {}
+        self.layout = GridLayout(cols=4, spacing=10, size_hint_y=None)
+        self.layout.bind(minimum_height=self.layout.setter('height'))
+        self.get_data("")
+        self.add_widget(self.layout)
 
-        layout = GridLayout(cols=3, spacing=10, size_hint_y=None)
-        layout.bind(minimum_height=layout.setter('height'))
+    def refresh_widget(self, parent=""):
+        """Refresh the screen"""
+        self.clear_widgets()
+        self.layout = GridLayout(cols=4, spacing=10, size_hint_y=None)
+        self.layout.bind(minimum_height=self.layout.setter('height'))
+        self.get_data(parent)
+        self.add_widget(self.layout)
 
+    def get_data(self, parent):
+        """Get the data"""
         # Get metadata
-        metadata = {}
+        self.metadata = {}
         for item in os.listdir(BACKUP_DIR):
             if item.endswith('.metadata'):
                 key, _ = item.split('.')
                 with open(BACKUP_DIR + item, 'r') as metafile:
-                    metadata[key] = json.load(metafile)
+                    self.metadata[key] = json.load(metafile)
         
         # Get thumbnails
-        thumbs = {}
-        for key in metadata:
+        self.thumbs = {}
+        for key in self.metadata:
             if os.path.exists(BACKUP_DIR + key + '.thumbnails'):
-                thumbs[key] = os.listdir(BACKUP_DIR + key + '.thumbnails')
+                self.thumbs[key] = os.listdir(BACKUP_DIR + key + '.thumbnails')
 
-        for key in metadata:
+                file_layout = BoxLayout(
+                    orientation='vertical',
+                    size_hint_y=None,
+                    height=300
+                )
+                aimg = AsyncImage(
+                    source = 'static/dir.png'
+                )
+
+        # Create a back if needed
+        if parent:
             file_layout = BoxLayout(
                 orientation='vertical',
                 size_hint_y=None,
                 height=300
             )
-            if key in thumbs:
-                aimg = AsyncImage(
-                    source=BACKUP_DIR + key + '.thumbnails' + "/" + thumbs[key][0]
-                )
-                file_layout.add_widget(aimg)
-            filename = metadata[key]['visibleName']
-            if len(filename) > 26:
-                newfilename = filename[:12] + '...' + filename[-11:]
-                filename = newfilename
+            aimg = AsyncImage(
+                source = 'static/dir.png'
+            )
+            image_button = ImageButton(
+                source=aimg.source,
+                metadata={},
+                key='',
+                view=self
+            )
+            file_layout.add_widget(image_button)
             label = Label(
-                text=filename,
+                text='Previous',
                 halign='left',
                 size_hint_y=None
             )
-#            label.textsize = label.size
             file_layout.add_widget(label)
-            layout.add_widget(file_layout)
+            self.layout.add_widget(file_layout)
 
-        self.add_widget(layout)
+        # Add files
+        for key in self.metadata:
+            if self.metadata[key]['parent'] == parent:
+                file_layout = BoxLayout(
+                    orientation='vertical',
+                    size_hint_y=None,
+                    height=300
+                )
+                aimg = AsyncImage(
+                    source = 'static/dir.png'
+                )
+                if key in self.thumbs:
+                    aimg = AsyncImage(
+                        source = BACKUP_DIR + key + '.thumbnails' + "/" + self.thumbs[key][0]
+                    )
+                image_button = ImageButton(
+                    source=aimg.source,
+                    metadata=self.metadata[key],
+                    key=key,
+                    view=self
+                )
+                file_layout.add_widget(image_button)
+                filename = self.metadata[key]['visibleName']
+                if len(filename) > 26:
+                    newfilename = filename[:12] + '...' + filename[-11:]
+                    filename = newfilename
+                label = Label(
+                    text=filename,
+                    halign='left',
+                    size_hint_y=None
+                )
+                file_layout.add_widget(label)
+                self.layout.add_widget(file_layout)
+
+
+class ImageButton(ButtonBehavior, AsyncImage):
+    """Images that act like Buttons"""
+
+    def __init__(self, **kwargs):
+        """Initialize the class"""
+        super(ImageButton, self).__init__(**kwargs)
+        if 'metadata' in kwargs:
+            self.metadata = kwargs['metadata']
+        if 'view' in kwargs:
+            self.view = kwargs['view']
+        if 'key' in kwargs:
+            self.key = kwargs['key']
+
+    def on_press(self):
+        """Update the view"""
+        if self.key:
+            if self.metadata['type'] == 'CollectionType':
+                self.view.refresh_widget(self.key)
+        else:
+            self.view.refresh_widget('')
 
 
 class MyFiles(BoxLayout):
