@@ -3,11 +3,13 @@ import json
 import os
 from pathlib import Path
 import pickle
+import requests
 from shutil import copy2
 import signal
 import stat
 import sys
 from threading import Thread
+import time
 import uuid
 
 import kivy
@@ -61,6 +63,7 @@ SPLASH_DIR = './splash/'
 REMOTE_SPLASH_DIR = '/usr/share/remarkable/'
 REMOTE_DOC_DIR = '/home/root/.local/share/remarkable/xochitl'
 BACKUP_DIR = './myfiles/'
+UPLOAD_PATH = 'upload'
 
 PICKLE_FILE = 'config.pickle'
 REMOTE_CONFIG_FILE = '/home/root/.config/remarkable/xochitl.conf'
@@ -215,7 +218,6 @@ class AppController(object):
             )
             sftp = ssh.open_sftp()
             self._get_directory(sftp, REMOTE_DOC_DIR, BACKUP_DIR)
-            app = App.get_running_app()
             self.status_layout.status_label.text = CONNECTED
             self.status = self.RUNNING
         except paramiko.ssh_exception.AuthenticationException as conn_e:
@@ -661,6 +663,20 @@ class FriendlyMyFiles(ScrollView):
                 file_layout.add_widget(label)
                 self.layout.add_widget(file_layout)
 
+    def on_dropfile(self, *args):
+        """Copy a pdf to the web updload end point"""
+        # this is dumb
+        controller = self.parent.parent.parent.app_controller
+        file_name = args[2]
+        host = controller.app_config_layout.ipaddress.text
+        url = 'http://' + host + '/' + UPLOAD_PATH
+        with open(file_name, 'rb') as file_obj:
+            response = requests.post(url, files={'file': file_obj})
+            time.sleep(5)
+            controller.get_files()
+            controller.status_layout.status_label.text = response.text
+        self.refresh_widget()
+
 
 class ImageButton(ButtonBehavior, AsyncImage):
     """Images that act like Buttons"""
@@ -790,7 +806,10 @@ class MyApp(App):
 
     def _on_dropfile(self, *args):
         """Call the the on_dropfile for the active tab's content"""
-        self.tabs.current_tab.content.on_dropfile(self, *args)
+        Thread(
+            target=self.tabs.current_tab.content.on_dropfile(self, *args)
+        ).start()
+        
 
 if __name__ == '__main__':
     MyApp().run()
