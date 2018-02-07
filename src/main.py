@@ -517,7 +517,7 @@ class HomeScreen(BoxLayout):
         my_files_header.content = MyFiles()
 #        self.tabs.add_widget(my_files_header)
 
-        friendly_files_header = TabbedPanelHeader(text='Friendly Files')
+        friendly_files_header = TabbedPanelHeader(text='My Files')
         friendly_files_header.content = FriendlyMyFiles()
         self.tabs.add_widget(friendly_files_header)
 
@@ -568,7 +568,25 @@ class FriendlyMyFiles(ScrollView):
                 key, _ = item.split('.')
                 with open(BACKUP_DIR + item, 'r') as metafile:
                     self.metadata[key] = json.load(metafile)
-        
+
+        # Order this stuff
+        dirs = []
+        files = []
+        for key in self.metadata:
+            self.metadata[key]['uuid'] = key
+            if self.metadata[key]['type'] == 'CollectionType':
+                dirs.append(self.metadata[key])
+            else:
+                files.append(self.metadata[key])
+        sort_field = 'visibleName'
+        ordered_dirs = sorted(dirs, key=lambda k: str.lower(str(k[sort_field])))
+        ordered_files = sorted(files, key=lambda k: str.lower(str(k[sort_field])))
+        ordered_keys = []
+        for item in ordered_dirs:
+            ordered_keys.append(item['uuid'])
+        for item in ordered_files:
+            ordered_keys.append(item['uuid'])
+
         # Get thumbnails
         self.thumbs = {}
         for key in self.metadata:
@@ -610,7 +628,7 @@ class FriendlyMyFiles(ScrollView):
             self.layout.add_widget(file_layout)
 
         # Add files
-        for key in self.metadata:
+        for key in ordered_keys:
             if self.metadata[key]['parent'] == parent:
                 file_layout = BoxLayout(
                     orientation='vertical',
