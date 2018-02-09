@@ -175,16 +175,16 @@ class AppController(object):
                 self.status_layout.status_label.text = TIMES_NOT_SET
         except paramiko.ssh_exception.AuthenticationException as conn_e:
             self.status_layout.status_label.text =  \
-                NOT_CONNECTED + '\n' + conn_e.message
+                NOT_CONNECTED + '\n' + str(conn_e)
         except paramiko.ssh_exception.BadHostKeyException as conn_e:
             self.status_layout.status_label.text = \
-                NOT_CONNECTED + '\n' + conn_e.message
+                NOT_CONNECTED + '\n' + str(conn_e)
         except paramiko.ssh_exception.SSHException as conn_e:
             self.status_layout.status_label.text = \
-                NOT_CONNECTED + '\n' + conn_e.message
+                NOT_CONNECTED + '\n' + str(conn_e)
         except IOError as conn_e:
             self.status_layout.status_label.text = \
-                NOT_CONNECTED + '\n' + conn_e.message
+                NOT_CONNECTED + '\n' + str(conn_e)
 
     def get_files(self, *args):
         """Always run this in the background"""
@@ -222,16 +222,16 @@ class AppController(object):
             self.status = self.RUNNING
         except paramiko.ssh_exception.AuthenticationException as conn_e:
             self.status_layout.status_label.text =  \
-                NOT_CONNECTED + '\n' + conn_e.message
+                NOT_CONNECTED + '\n' + str(conn_e)
         except paramiko.ssh_exception.BadHostKeyException as conn_e:
             self.status_layout.status_label.text = \
-                NOT_CONNECTED + '\n' + conn_e.message
+                NOT_CONNECTED + '\n' + str(conn_e)
         except paramiko.ssh_exception.SSHException as conn_e:
             self.status_layout.status_label.text = \
-                NOT_CONNECTED + '\n' + conn_e.message
+                NOT_CONNECTED + '\n' + str(conn_e)
         except IOError as conn_e:
             self.status_layout.status_label.text = \
-                NOT_CONNECTED + '\n' + conn_e.message
+                NOT_CONNECTED + '\n' + str(conn_e)
 
     def _get_directory(self, sftp, remote_directory, local_directory):
         """Recurse through the directories"""
@@ -337,16 +337,16 @@ class AppController(object):
                 self.status_layout.status_label.text = REMOTE_FILE_SAVED
             except paramiko.ssh_exception.AuthenticationException as conn_e:
                 self.status_layout.status_label.text = \
-                    NOT_CONNECTED + '\n' + conn_e.message
+                    NOT_CONNECTED + '\n' + str(conn_e)
             except paramiko.ssh_exception.BadHostKeyException as conn_e:
                 self.status_layout.status_label.text = \
-                    NOT_CONNECTED + '\n' + conn_e.message
+                    NOT_CONNECTED + '\n' + str(conn_e)
             except paramiko.ssh_exception.SSHException as conn_e:
                 self.status_layout.status_label.text = \
-                    NOT_CONNECTED + '\n' + conn_e.message
+                    NOT_CONNECTED + '\n' + str(conn_e)
             except IOError as conn_e:
                 self.status_layout.status_label.text = \
-                    NOT_CONNECTED + '\n' + conn_e.message
+                    NOT_CONNECTED + '\n' + str(conn_e)
         else:
             self.status_layout.status_label.text = NO_LOCAL
 
@@ -683,7 +683,10 @@ class ImageButton(ButtonBehavior, AsyncImage):
 
     def __init__(self, **kwargs):
         """Initialize the class"""
-        super(ImageButton, self).__init__(**kwargs)
+        #super(ImageButton, self).__init__(**kwargs)
+        super(ImageButton, self).__init__()
+        if 'source' in kwargs:
+            self.source = kwargs['source']
         if 'metadata' in kwargs:
             self.metadata = kwargs['metadata']
         if 'view' in kwargs:
@@ -763,7 +766,8 @@ class TabletSettings(BoxLayout):
 
     def __init__(self, **kwargs):
         """Initialize the class"""
-        super(TabletSettings, self).__init__(**kwargs)
+        #super(TabletSettings, self).__init__(**kwargs)
+        super(TabletSettings, self).__init__()
         self.orientation = 'vertical'
 
         self.status_layout = kwargs['status_layout']
@@ -781,7 +785,8 @@ class AppSettings(BoxLayout):
 
     def __init__(self, **kwargs):
         """Initialize the class"""
-        super(AppSettings, self).__init__(**kwargs)
+        #super(AppSettings, self).__init__(**kwargs)
+        super(AppSettings, self).__init__()
         self.orientation = 'vertical'
 
         self.status_layout = kwargs['status_layout']
