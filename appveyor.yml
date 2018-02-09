@@ -1,0 +1,18 @@
+image: Visual Studio 2017
+
+environment:
+  PYTHON: C:\Python36-x64
+
+install:
+  - SET PATH=%PYTHON%;%PYTHON%\Scripts;%PATH%;C:\Program Files (x86)\NSIS\Bin
+  - python -m pip install --disable-pip-version-check --upgrade pip
+  - pip install -r windows-requirements.txt
+  - pip install --upgrade pynsist
+
+build_script:
+  - python build-nsis.py
+
+artifacts:
+  - path: .\build\nsis\RemarkableAssistant*.exe
+
+test: off
