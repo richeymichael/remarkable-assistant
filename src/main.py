@@ -669,7 +669,7 @@ class FriendlyMyFiles(ScrollView):
         """Copy a pdf to the web updload end point"""
         # this is dumb
         controller = self.parent.parent.parent.app_controller
-        file_name = args[2]
+        file_name = args[2].decode('UTF-8')
         host = controller.app_config_layout.ipaddress.text
         url = 'http://' + host + '/' + UPLOAD_PATH
         with open(file_name, 'rb') as file_obj:
@@ -738,7 +738,7 @@ class Splash(BoxLayout):
 
     def on_dropfile(self, *args):
         """Copy the file to the local directory when a file is dropped here"""
-        copy2(args[2], SPLASH_DIR)
+        copy2(args[2].decode('UTF-8'), SPLASH_DIR)
         self.file_chooser._update_files()
 
 
@@ -757,7 +757,7 @@ class Templates(BoxLayout):
 
     def on_dropfile(self, *args):
         """Copy the file to the local directory when a file is dropped here"""
-        copy2(args[2], TEMPLATE_DIR)
+        copy2(args[2].decode('UTF-8'), TEMPLATE_DIR)
         self.file_chooser._update_files()
 
 
