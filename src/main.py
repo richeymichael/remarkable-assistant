@@ -1,6 +1,7 @@
 """The application is a GUI for changing settings on the remarkable tablet"""
 import json
 import os
+from os.path import expanduser
 from pathlib import Path
 import pickle
 import requests
@@ -56,16 +57,23 @@ IDLE_KEY = 'IdleSuspendDelay'
 SUSPEND_KEY = 'SuspendPowerOffDelay'
 DEVPASS_KEY = 'DeveloperPassword'
 
-TMP_DIR = './tmp/'
-TEMPLATE_DIR = './additional-templates/'
+home = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    home = sys._MEIPASS
+APP_HOME = home + '/remark-assist/'
+if not os.path.exists(APP_HOME):
+    os.makedirs(APP_HOME)
+TMP_DIR = APP_HOME + 'tmp/'
+TEMPLATE_DIR = APP_HOME + 'additional-templates/'
+SPLASH_DIR = APP_HOME + 'splash/'
+BACKUP_DIR = APP_HOME + 'myfiles/'
+
 REMOTE_TEMPLATE_DIR = '/usr/share/remarkable/templates/'
-SPLASH_DIR = './splash/'
 REMOTE_SPLASH_DIR = '/usr/share/remarkable/'
 REMOTE_DOC_DIR = '/home/root/.local/share/remarkable/xochitl'
-BACKUP_DIR = './myfiles/'
 UPLOAD_PATH = 'upload'
 
-PICKLE_FILE = 'config.pickle'
+PICKLE_FILE = APP_HOME + 'config.pickle'
 REMOTE_CONFIG_FILE = '/home/root/.config/remarkable/xochitl.conf'
 
 
@@ -120,12 +128,6 @@ class AppController(object):
         self.friendly_my_files = friendly_my_files
         self.my_files = my_files
         file_uuid = str(uuid.uuid4())
-        if not os.path.exists(TMP_DIR):
-            os.makedirs(TMP_DIR)
-        if not os.path.exists(TEMPLATE_DIR):
-            os.makedirs(TEMPLATE_DIR)
-        if not os.path.exists(SPLASH_DIR):
-            os.makedirs(SPLASH_DIR)
         self.temp_file = TMP_DIR + file_uuid + '.bak'
         self.local_file = TMP_DIR + file_uuid + '.new'
         self.get_config()
@@ -709,8 +711,6 @@ class MyFiles(BoxLayout):
     def __init__(self, **kwargs):
         """Initialize the class"""
         super(MyFiles, self).__init__(**kwargs)
-        if not os.path.exists(BACKUP_DIR):
-            os.makedirs(BACKUP_DIR)
         self.orientation = 'vertical'
         self.file_chooser = FileChooserListView()
         self.file_chooser.rootpath = BACKUP_DIR
@@ -804,6 +804,14 @@ class MyApp(App):
 
     def build(self):
         """Set title and build the HomeScreen (well a layout not a screen)"""
+        if not os.path.exists(BACKUP_DIR):
+            os.makedirs(BACKUP_DIR)
+        if not os.path.exists(TMP_DIR):
+            os.makedirs(TMP_DIR)
+        if not os.path.exists(TEMPLATE_DIR):
+            os.makedirs(TEMPLATE_DIR)
+        if not os.path.exists(SPLASH_DIR):
+            os.makedirs(SPLASH_DIR)
         self.title = "reMarkable Assistant"
         self.tabs = None
         Window.bind(on_dropfile=self._on_dropfile)
