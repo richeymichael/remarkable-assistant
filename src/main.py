@@ -161,12 +161,12 @@ class AppController(object):
                 if line.find(IDLE_KEY) == 0:
                     _, milliseconds = str.split(line, '=')
                     self.tablet_config_layout.idle.text = str(
-                        int(milliseconds)/1000/60
+                        int(int(milliseconds)/1000/60)
                     )
                 elif line.find(SUSPEND_KEY) == 0:
                     _, milliseconds = str.split(line, '=')
                     self.tablet_config_layout.suspend.text = str(
-                        int(milliseconds)/1000/60
+                        int(int(milliseconds)/1000/60)
                     )
                 elif line.find(DEVPASS_KEY) == 0:
                     _, password = str.split(line, '=')
@@ -277,11 +277,11 @@ class AppController(object):
                 for line in file_input:
                     if line.find(IDLE_KEY) == 0:
                         line = IDLE_KEY + "=%d\n" % (
-                            int(self.tablet_config_layout.idle.text)*1000*60
+                            int(int(self.tablet_config_layout.idle.text)*1000*60)
                         )
                     elif line.find(SUSPEND_KEY) == 0:
                         line = SUSPEND_KEY + "=%d\n" % (
-                            int(self.tablet_config_layout.suspend.text)*1000*60
+                            int(int(self.tablet_config_layout.suspend.text)*1000*60)
                         )
                     elif line.find(DEVPASS_KEY) == 0:
                         line = DEVPASS_KEY + "=%s\n" % (
