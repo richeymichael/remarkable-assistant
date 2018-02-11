@@ -35,6 +35,7 @@ from kivy.uix.textinput import TextInput
 import paramiko
 
 Config.set('graphics', 'multisamples', '0')
+Config.set('input', 'mouse', 'mouse,disable_multitouch')
 kivy.require('1.10.0')
 LIMIT = 5
 
