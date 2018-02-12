@@ -29,6 +29,7 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.image import AsyncImage
 from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
+from kivy.uix.stacklayout import StackLayout
 from kivy.uix.tabbedpanel import TabbedPanel
 from kivy.uix.tabbedpanel import TabbedPanelHeader
 from kivy.uix.textinput import TextInput
@@ -548,26 +549,35 @@ class FriendlyMyFiles(ScrollView):
     def __init__(self, **kwargs):
         """Initialize the class"""
         super(FriendlyMyFiles, self).__init__(**kwargs)
+        self.parent_dir=""
         self.size_hint=(1, 1)
         self.metadata = {}
         self.thumbs = {}
-        self.layout = GridLayout(cols=4, spacing=10, size_hint_y=None)
+        self.column_num = int(Window.width/400)
+        self.layout = GridLayout(cols=self.column_num, spacing=10, size_hint_y=None)
         self.layout.bind(minimum_height=self.layout.setter('height'))
         self.get_data("")
         self.add_widget(self.layout)
+        Window.bind(on_resize=self._resize)
 
-    def refresh_widget(self, parent=""):
+    def _resize(self, window, width, height):
+        self.refresh_widget(self.parent_dir)
+
+    def refresh_widget(self, parent_dir=""):
         """Refresh the screen"""
+        self.parent_dir=parent_dir
         self.clear_widgets()
-        self.layout = GridLayout(cols=4, spacing=10, size_hint_y=None)
+        self.column_num = int(Window.width/400)
+        self.layout = GridLayout(cols=self.column_num, spacing=10, size_hint_y=None)
         self.layout.bind(minimum_height=self.layout.setter('height'))
-        self.get_data(parent)
+        self.get_data(parent_dir)
         self.add_widget(self.layout)
 
-    def get_data(self, parent):
+    def get_data(self, parent_dir):
         """Get the data"""
         # Get metadata
         self.metadata = {}
+        self.parent_dir=parent_dir
         for item in os.listdir(BACKUP_DIR):
             if item.endswith('.metadata'):
                 key, _ = item.split('.')
@@ -608,7 +618,7 @@ class FriendlyMyFiles(ScrollView):
                 )
 
         # Create a back if needed
-        if parent:
+        if parent_dir:
             file_layout = BoxLayout(
                 orientation='vertical',
                 size_hint_y=None,
@@ -634,7 +644,7 @@ class FriendlyMyFiles(ScrollView):
 
         # Add files
         for key in ordered_keys:
-            if self.metadata[key]['parent'] == parent:
+            if self.metadata[key]['parent'] == parent_dir:
                 file_layout = BoxLayout(
                     orientation='vertical',
                     size_hint_y=None,
