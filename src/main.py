@@ -1,10 +1,8 @@
 """The application is a GUI for changing settings on the remarkable tablet"""
 import json
 import os
-from os.path import expanduser
 from pathlib import Path
 import pickle
-import requests
 from shutil import copy2
 import signal
 import stat
@@ -13,8 +11,10 @@ from threading import Thread
 import time
 import uuid
 
-import kivy
+import paramiko
+import requests
 
+import kivy
 from kivy.app import App
 from kivy import Config
 from kivy.core.window import Window
@@ -22,18 +22,16 @@ from kivy.graphics import Color
 from kivy.graphics import Rectangle
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.button import Button
 from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.button import Button
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.image import AsyncImage
 from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
-from kivy.uix.stacklayout import StackLayout
 from kivy.uix.tabbedpanel import TabbedPanel
 from kivy.uix.tabbedpanel import TabbedPanelHeader
 from kivy.uix.textinput import TextInput
-import paramiko
 
 Config.set('graphics', 'multisamples', '0')
 Config.set('input', 'mouse', 'mouse,disable_multitouch')
@@ -175,7 +173,7 @@ class AppController(object):
                     self.app_config_layout.old_password.text = password.strip()
                     self.tablet_config_layout.password.text = password.strip()
             if (not self.tablet_config_layout.idle.text or
-                not self.tablet_config_layout.suspend.text):
+                    not self.tablet_config_layout.suspend.text):
                 self.status_layout.status_label.text = TIMES_NOT_SET
         except paramiko.ssh_exception.AuthenticationException as conn_e:
             self.status_layout.status_label.text =  \
@@ -549,8 +547,8 @@ class FriendlyMyFiles(ScrollView):
     def __init__(self, **kwargs):
         """Initialize the class"""
         super(FriendlyMyFiles, self).__init__(**kwargs)
-        self.parent_dir=""
-        self.size_hint=(1, 1)
+        self.parent_dir = ""
+        self.size_hint = (1, 1)
         self.metadata = {}
         self.thumbs = {}
         self.column_num = int(Window.width/400)
@@ -565,7 +563,7 @@ class FriendlyMyFiles(ScrollView):
 
     def refresh_widget(self, parent_dir=""):
         """Refresh the screen"""
-        self.parent_dir=parent_dir
+        self.parent_dir = parent_dir
         self.clear_widgets()
         self.column_num = int(Window.width/400)
         self.layout = GridLayout(cols=self.column_num, spacing=10, size_hint_y=None)
@@ -577,7 +575,7 @@ class FriendlyMyFiles(ScrollView):
         """Get the data"""
         # Get metadata
         self.metadata = {}
-        self.parent_dir=parent_dir
+        self.parent_dir = parent_dir
         for item in os.listdir(BACKUP_DIR):
             if item.endswith('.metadata'):
                 key, _ = item.split('.')
@@ -614,7 +612,7 @@ class FriendlyMyFiles(ScrollView):
                     height=300
                 )
                 aimg = AsyncImage(
-                    source = 'static/dir.png'
+                    source='static/dir.png'
                 )
 
         # Create a back if needed
@@ -625,7 +623,7 @@ class FriendlyMyFiles(ScrollView):
                 height=300
             )
             aimg = AsyncImage(
-                source = 'static/dir.png'
+                source='static/dir.png'
             )
             image_button = ImageButton(
                 source=aimg.source,
@@ -651,11 +649,11 @@ class FriendlyMyFiles(ScrollView):
                     height=300
                 )
                 aimg = AsyncImage(
-                    source = 'static/dir.png'
+                    source='static/dir.png'
                 )
                 if key in self.thumbs:
                     aimg = AsyncImage(
-                        source = BACKUP_DIR + key + '.thumbnails' + "/" + self.thumbs[key][0]
+                        source=BACKUP_DIR + key + '.thumbnails' + "/" + self.thumbs[key][0]
                     )
                 image_button = ImageButton(
                     source=aimg.source,
@@ -696,7 +694,6 @@ class ImageButton(ButtonBehavior, AsyncImage):
 
     def __init__(self, **kwargs):
         """Initialize the class"""
-        #super(ImageButton, self).__init__(**kwargs)
         super(ImageButton, self).__init__()
         if 'source' in kwargs:
             self.source = kwargs['source']
@@ -777,7 +774,6 @@ class TabletSettings(BoxLayout):
 
     def __init__(self, **kwargs):
         """Initialize the class"""
-        #super(TabletSettings, self).__init__(**kwargs)
         super(TabletSettings, self).__init__()
         self.orientation = 'vertical'
 
@@ -796,7 +792,6 @@ class AppSettings(BoxLayout):
 
     def __init__(self, **kwargs):
         """Initialize the class"""
-        #super(AppSettings, self).__init__(**kwargs)
         super(AppSettings, self).__init__()
         self.orientation = 'vertical'
 
@@ -833,7 +828,7 @@ class MyApp(App):
         Thread(
             target=self.tabs.current_tab.content.on_dropfile(self, *args)
         ).start()
-        
+
 
 if __name__ == '__main__':
     MyApp().run()
