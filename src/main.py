@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import pickle
+import platform
 from shutil import copy2
 import signal
 import stat
@@ -21,8 +22,8 @@ from kivy.core.window import Window
 from kivy.graphics import Color
 from kivy.graphics import Rectangle
 from kivy.uix.anchorlayout import AnchorLayout
-from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.gridlayout import GridLayout
@@ -113,7 +114,7 @@ class AppController(object):
 
     def __init__(
             self,
-            app_config_layout,
+            app_config_lout,
             tablet_config_layout,
             status_layout,
             my_files,
@@ -123,7 +124,7 @@ class AppController(object):
         """Initialize the class"""
         self.status = self.RUNNING
         self.status_layout = status_layout
-        self.app_config_layout = app_config_layout
+        self.app_config_lout = app_config_lout
         self.tablet_config_layout = tablet_config_layout
         self.friendly_my_files = friendly_my_files
         self.my_files = my_files
@@ -147,10 +148,10 @@ class AppController(object):
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(
-                self.app_config_layout.ipaddress.text,
-                port=int(self.app_config_layout.port.text),
-                username=self.app_config_layout.username.text,
-                password=self.app_config_layout.old_password.text,
+                self.app_config_lout.ipaddress.text,
+                port=int(self.app_config_lout.port.text),
+                username=self.app_config_lout.username.text,
+                password=self.app_config_lout.old_password.text,
                 timeout=5
             )
             sftp = ssh.open_sftp()
@@ -170,7 +171,7 @@ class AppController(object):
                     )
                 elif line.find(DEVPASS_KEY) == 0:
                     _, password = str.split(line, '=')
-                    self.app_config_layout.old_password.text = password.strip()
+                    self.app_config_lout.old_password.text = password.strip()
                     self.tablet_config_layout.password.text = password.strip()
             if (not self.tablet_config_layout.idle.text or
                     not self.tablet_config_layout.suspend.text):
@@ -190,11 +191,27 @@ class AppController(object):
 
     def get_files(self, *args):
         """Always run this in the background"""
-        signal.signal(signal.SIGALRM, self.signal_handler)
-        signal.alarm(5)
         self.status = self.UPDATING
+        if platform.system() != 'Windows':
+            signal.signal(signal.SIGALRM, self.signal_handler)
+            signal.alarm(5)
+        else:
+            Thread(target=self._windows_signal).start()
+        Thread(target=self._windows_signal).start()
         self.status_layout.status_label.text = INITIALIZE
         Thread(target=self._get_files).start()
+
+    def _windows_signal(self):
+        """Windows doesn't do SIGALRM"""
+        while True:
+            if self.status == self.UPDATING:
+                self.my_files.file_chooser._update_files()
+                self.friendly_my_files.refresh_widget()
+                time.sleep(5)
+            else:
+                self.my_files.file_chooser._update_files()
+                self.friendly_my_files.refresh_widget()
+                break
 
     def signal_handler(self, signum, frame):
         """Update the files in the view"""
@@ -212,10 +229,10 @@ class AppController(object):
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(
-                self.app_config_layout.ipaddress.text,
-                port=int(self.app_config_layout.port.text),
-                username=self.app_config_layout.username.text,
-                password=self.app_config_layout.old_password.text,
+                self.app_config_lout.ipaddress.text,
+                port=int(self.app_config_lout.port.text),
+                username=self.app_config_lout.username.text,
+                password=self.app_config_lout.old_password.text,
                 timeout=5
             )
             sftp = ssh.open_sftp()
@@ -277,11 +294,11 @@ class AppController(object):
                 for line in file_input:
                     if line.find(IDLE_KEY) == 0:
                         line = IDLE_KEY + "=%d\n" % (
-                            int(int(self.tablet_config_layout.idle.text)*1000*60)
+                            int(self.tablet_config_layout.idle.text*1000*60)
                         )
                     elif line.find(SUSPEND_KEY) == 0:
                         line = SUSPEND_KEY + "=%d\n" % (
-                            int(int(self.tablet_config_layout.suspend.text)*1000*60)
+                            int(self.tablet_config_layout.suspend.text*1000*60)
                         )
                     elif line.find(DEVPASS_KEY) == 0:
                         line = DEVPASS_KEY + "=%s\n" % (
@@ -309,15 +326,15 @@ class AppController(object):
 
     def _save_to_tablet(self):
         """Call save locally to write out uuid.new then sftp to tablet"""
-        if self._save_locally() and self.app_config_layout.old_password:
+        if self._save_locally() and self.app_config_lout.old_password:
             try:
                 ssh = paramiko.SSHClient()
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
                 ssh.connect(
-                    self.app_config_layout.ipaddress.text,
-                    port=int(self.app_config_layout.port.text),
-                    username=self.app_config_layout.username.text,
-                    password=self.app_config_layout.old_password.text,
+                    self.app_config_lout.ipaddress.text,
+                    port=int(self.app_config_lout.port.text),
+                    username=self.app_config_lout.username.text,
+                    password=self.app_config_lout.old_password.text,
                     timeout=5
                 )
                 sftp = ssh.open_sftp()
@@ -327,10 +344,10 @@ class AppController(object):
                     sftp.put(TEMPLATE_DIR + item, REMOTE_TEMPLATE_DIR + item)
                 for item in os.listdir(SPLASH_DIR):
                     sftp.put(SPLASH_DIR + item, REMOTE_SPLASH_DIR + item)
-                self.app_config_layout.old_password.text = \
+                self.app_config_lout.old_password.text = \
                     self.tablet_config_layout.password.text.strip()
                 save_pw = {
-                    'password': self.app_config_layout.old_password.text.strip()
+                    'password': self.app_config_lout.old_password.text.strip()
                 }
                 pickle_out = open(PICKLE_FILE, "wb")
                 pickle.dump(save_pw, pickle_out)
@@ -363,7 +380,7 @@ class AppController(object):
         if file_name.is_file():
             os.remove(self.local_file)
         save_pw = {
-            'password': self.app_config_layout.old_password.text.strip()
+            'password': self.app_config_lout.old_password.text.strip()
         }
         pickle_out = open(PICKLE_FILE, "wb")
         pickle.dump(save_pw, pickle_out)
@@ -552,7 +569,11 @@ class FriendlyMyFiles(ScrollView):
         self.metadata = {}
         self.thumbs = {}
         self.column_num = int(Window.width/400)
-        self.layout = GridLayout(cols=self.column_num, spacing=10, size_hint_y=None)
+        self.layout = GridLayout(
+            cols=self.column_num,
+            spacing=10,
+            size_hint_y=None
+        )
         self.layout.bind(minimum_height=self.layout.setter('height'))
         self.get_data("")
         self.add_widget(self.layout)
@@ -566,7 +587,11 @@ class FriendlyMyFiles(ScrollView):
         self.parent_dir = parent_dir
         self.clear_widgets()
         self.column_num = int(Window.width/400)
-        self.layout = GridLayout(cols=self.column_num, spacing=10, size_hint_y=None)
+        self.layout = GridLayout(
+            cols=self.column_num,
+            spacing=10,
+            size_hint_y=None
+        )
         self.layout.bind(minimum_height=self.layout.setter('height'))
         self.get_data(parent_dir)
         self.add_widget(self.layout)
@@ -592,8 +617,12 @@ class FriendlyMyFiles(ScrollView):
             else:
                 files.append(self.metadata[key])
         sort_field = 'visibleName'
-        ordered_dirs = sorted(dirs, key=lambda k: str.lower(str(k[sort_field])))
-        ordered_files = sorted(files, key=lambda k: str.lower(str(k[sort_field])))
+        ordered_dirs = sorted(
+            dirs, key=lambda k: str.lower(str(k[sort_field]))
+        )
+        ordered_files = sorted(
+            files, key=lambda k: str.lower(str(k[sort_field]))
+        )
         ordered_keys = []
         for item in ordered_dirs:
             ordered_keys.append(item['uuid'])
@@ -649,11 +678,16 @@ class FriendlyMyFiles(ScrollView):
                     height=300
                 )
                 aimg = AsyncImage(
-                    source='static/dir.png'
+                    source='static/no_image.png'
                 )
-                if key in self.thumbs:
+                if key in self.thumbs and len(self.thumbs[key]) > 0:
                     aimg = AsyncImage(
-                        source=BACKUP_DIR + key + '.thumbnails' + "/" + self.thumbs[key][0]
+                        source=BACKUP_DIR + key + '.thumbnails' +
+                        "/" + self.thumbs[key][0]
+                    )
+                if self.metadata[key]['type'] == 'CollectionType':
+                    aimg = AsyncImage(
+                        source='static/dir.png'
                     )
                 image_button = ImageButton(
                     source=aimg.source,
@@ -679,7 +713,7 @@ class FriendlyMyFiles(ScrollView):
         # this is dumb
         controller = self.parent.parent.parent.app_controller
         file_name = args[2].decode('UTF-8')
-        host = controller.app_config_layout.ipaddress.text
+        host = controller.app_config_lout.ipaddress.text
         url = 'http://' + host + '/' + UPLOAD_PATH
         with open(file_name, 'rb') as file_obj:
             response = requests.post(url, files={'file': file_obj})
