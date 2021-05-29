@@ -1,5 +1,5 @@
 Cython==0.26.1
-Kivy>=1.10.0
+Kivy==1.11.0
 Kivy-Garden==0.1.4
 paramiko==2.1.2
 pathlib==1.0.1
