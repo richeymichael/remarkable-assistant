@@ -25,7 +25,7 @@ Once the above is verified, run the following commands:
 
 `C:\Python27\python.exe -m pip install --upgrade pip`
 
-`C:\Python27\pythone.exe -m pip install -r windows-requirements.txt`
+`C:\Python27\python.exe -m pip install -r windows-requirements.txt`
 
 Run the application:
 
@@ -42,7 +42,7 @@ Run the application:
 
 # How to use it
 1. Plug your remarkable tablet into your computer via USB
-2. Set the password the remarkable ssh password you see under rM->About
+2. Set the password to the remarkable ssh password you see under rM->About
 3. Click the 'Reconnect' button so the assistant will pull down your config
 4. Remarkable Assistant should fill in the missing fields with the current values
 5. You can now change the new password and timeout fields
